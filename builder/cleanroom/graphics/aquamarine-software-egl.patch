@@ -1,0 +1,24 @@
+diff --git a/src/backend/drm/DRM.cpp b/src/backend/drm/DRM.cpp
+index 888fef2..efb3a27 100644
+--- a/src/backend/drm/DRM.cpp
++++ b/src/backend/drm/DRM.cpp
+@@ -668,6 +668,10 @@ bool Aquamarine::CDRMBackend::initMgpu() {
+ 
+     rendererState.renderer = CDRMRenderer::attempt(backend.lock(), gpu->renderNodeFd >= 0 ? gpu->renderNodeFd : gpu->fd);
+ 
++    // Software drivers can expose a GBM display without a matching EGLDevice.
++    if (!rendererState.renderer)
++        rendererState.renderer = CDRMRenderer::attempt(backend.lock(), newAllocator);
++
+     if (!rendererState.renderer) {
+         backend->log(AQ_LOG_ERROR, "drm: initMgpu: no renderer");
+         return false;
+@@ -1235,6 +1239,8 @@ void Aquamarine::CDRMBackend::onReady() {
+             backend->log(AQ_LOG_ERROR, "drm: onReady: no renderer for gl formats");
+         else {
+             auto r = CDRMRenderer::attempt(backend.lock(), gpu->renderNodeFd >= 0 ? gpu->renderNodeFd : gpu->fd);
++            if (!r)
++                r = CDRMRenderer::attempt(backend.lock(), a);
+             if (!r)
+                 backend->log(AQ_LOG_ERROR, "drm: onReady: no renderer for gl formats");
+             else {

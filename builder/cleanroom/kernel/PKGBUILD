@@ -1,0 +1,37 @@
+pkgname=linux-omarchy-j713
+pkgver=7.1.9.j713
+pkgrel=4
+pkgdesc='Omarchy J713 cleanroom kernel and matched modules'
+arch=('aarch64')
+url='https://github.com/erykwieliczko/omarchy-mx-mac'
+license=('GPL-2.0-only')
+depends=('coreutils' 'kmod' 'mkinitcpio')
+conflicts=('linux-asahi' 'linux-asahi-headers' 'm1n1' 'uboot-asahi' 'asahi-scripts')
+options=('!strip' '!debug')
+source=()
+sha256sums=()
+
+package() {
+  local input=${OMARCHY_CLEANROOM_KERNEL_SOURCE:?kernel input directory is required}
+  local release
+  release=$(cat "$input/kernel.release")
+  [[ $release == "7.1.9-omarchy-j713.3" ]]
+  [[ -f $input/Image && -d $input/lib/modules/$release ]]
+  [[ ! -e $input/lib/modules/$release/build && ! -L $input/lib/modules/$release/build ]]
+  install -d "$pkgdir/usr/lib/modules"
+  cp -a "$input/lib/modules/$release" "$pkgdir/usr/lib/modules/"
+  find "$pkgdir/usr/lib/modules" -type d -exec chmod 0755 {} +
+  find "$pkgdir/usr/lib/modules" -type f -exec chmod 0644 {} +
+  install -m 0644 "$input/Image" "$pkgdir/usr/lib/modules/$release/vmlinuz"
+  install -m 0644 "$input/config" "$pkgdir/usr/lib/modules/$release/config"
+  printf '%s\n' "$pkgname" > "$pkgdir/usr/lib/modules/$release/pkgbase"
+  chmod 0644 "$pkgdir/usr/lib/modules/$release/pkgbase"
+  install -Dm0644 "$input/build-receipt.json" "$pkgdir/usr/share/omarchy/kernel/build-receipt.json"
+  install -d "$pkgdir/etc/mkinitcpio.d" "$pkgdir/etc/modules-load.d"
+  printf '%s\n' 'apple-pmp-thermal' > "$pkgdir/etc/modules-load.d/omarchy-j713-thermal.conf"
+  cat > "$pkgdir/etc/mkinitcpio.d/$pkgname.preset" <<PRESET
+ALL_kver="/usr/lib/modules/$release/vmlinuz"
+PRESETS=('default')
+default_image="/boot/initramfs-$pkgname.img"
+PRESET
+}

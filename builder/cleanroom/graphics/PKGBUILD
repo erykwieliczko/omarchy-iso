@@ -1,0 +1,25 @@
+pkgname=aquamarine
+pkgver=0.14.0
+pkgrel=3
+pkgdesc='Linux rendering backend with software EGL display fallback'
+arch=('aarch64')
+url='https://github.com/hyprwm/aquamarine'
+license=('BSD-3-Clause')
+depends=('libgcc' 'libstdc++' 'glibc' 'hyprutils' 'libhyprutils.so'
+  'hyprwayland-scanner' 'libdisplay-info' 'libdisplay-info.so' 'libdrm'
+  'libglvnd' 'libEGL.so' 'libinput' 'mesa' 'opengl-driver' 'pixman'
+  'seatd' 'libseat.so' 'systemd-libs' 'libudev.so' 'wayland'
+  'libwayland-client.so' 'wayland-protocols')
+provides=('libaquamarine.so')
+options=('!strip' '!debug')
+source=()
+sha256sums=()
+
+package() {
+  local input=${OMARCHY_GRAPHICS_STAGE:?staged ARM64 graphics package directory}
+  [[ -f $input/usr/lib/libaquamarine.so.0.14.0 ]]
+  cp -a "$input/usr" "$pkgdir/"
+  find "$pkgdir/usr" -type d -exec chmod 0755 {} +
+  find "$pkgdir/usr" -type f -exec chmod 0644 {} +
+  chmod 0755 "$pkgdir/usr/lib/libaquamarine.so.0.14.0"
+}

@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+exec /usr/bin/qemu-aarch64 -L "${QEMU_LD_PREFIX:?ARM64 sysroot}" \
+  "$QEMU_LD_PREFIX/usr/bin/hyprwayland-scanner" "$@"

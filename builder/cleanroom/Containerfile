@@ -1,0 +1,7 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+RUN pacman-key --init \
+    && pacman-key --populate archlinux \
+    && pacman --noconfirm -Syu archlinux-keyring arch-install-scripts btrfs-progs e2fsprogs dosfstools jq mtools python libarchive cpio kmod file \
+    && pacman -Scc --noconfirm
+RUN LC_ALL=C pacman -Q | sort > /usr/share/omarchy-cleanroom-builder-packages.txt
