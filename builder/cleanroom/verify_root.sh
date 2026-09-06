@@ -14,20 +14,24 @@ done
 root_loop=$(losetup --find --show --read-only "$images/root.img")
 boot_loop=$(losetup --find --show --read-only "$images/boot.img")
 target=$(mktemp -d)
+top=$(mktemp -d)
 cleanup() {
   local status=$?
   set +e
   mountpoint -q "$target/boot" && umount "$target/boot"
   mountpoint -q "$target" && umount "$target"
+  mountpoint -q "$top" && umount "$top"
   losetup -d "$root_loop" "$boot_loop"
-  rmdir "$target"
+  rmdir "$target" "$top"
   exit "$status"
 }
 trap cleanup EXIT
 mount -o ro,subvol=@ "$root_loop" "$target"
 mount -o ro "$boot_loop" "$target/boot"
+mount -o ro,subvolid=5 "$root_loop" "$top"
+python3 "${BASH_SOURCE[0]%/*}/verify_no_firmware.py" "$top" "$target/boot" > "$output/firmware-inventory.txt"
 cmp "$images/initramfs.img" "$target/boot/initramfs-linux-omarchy-j713.img"
-python3 "${BASH_SOURCE[0]%/*}/verify_initramfs.py" "$images/initramfs.img" "$input/firmware" "$input/kernel/lib/modules/$release/kernel/drivers/thermal/apple-pmp-thermal.ko" > "$output/initramfs.txt"
+python3 "${BASH_SOURCE[0]%/*}/verify_initramfs.py" "$images/initramfs.img" "$input/kernel/lib/modules/$release/kernel/drivers/thermal/apple-pmp-thermal.ko" > "$output/initramfs.txt"
 [[ $(blkid -s UUID -o value "$root_loop") == "4f4d5801-524f-4f54-8713-000000000001" ]]
 [[ ! -s $target/etc/machine-id ]]
 [[ ! -e $target/usr/bin/update-m1n1 ]]
@@ -54,10 +58,9 @@ cmp "$input/kernel/Image" "$target/usr/lib/modules/$release/vmlinuz"
 cmp "$input/kernel/config" "$target/usr/lib/modules/$release/config"
 modinfo "$target/usr/lib/modules/$release/kernel/drivers/thermal/apple-pmp-thermal.ko" > "$output/thermal-module.txt"
 [[ $(cat "$target/etc/modules-load.d/omarchy-j713-thermal.conf") == "apple-pmp-thermal" ]]
-while IFS= read -r -d '' file; do
-  relative=${file#"$input/firmware/"}
-  cmp "$file" "$target/usr/lib/firmware/$relative"
-done < <(find "$input/firmware/apple" "$input/firmware/brcm" -type f -print0)
+[[ -z $(find "$target/usr/lib/firmware" -mindepth 1 ! -name regulatory.db ! -name regulatory.db.p7s -print -quit) ]]
+[[ ! -e $target/boot/efi/vendorfw ]]
+[[ $(sed -n '/^CONFIG_EXTRA_FIRMWARE=/p' "$target/usr/lib/modules/$release/config") == 'CONFIG_EXTRA_FIRMWARE=""' ]]
 cp "$target/etc/fstab" "$output/fstab"
 cp "$target/etc/systemd/system/omarchy-provision-owner.service" "$output/"
 cp "$target/etc/systemd/system/omarchy-vendor-firmware.service" "$output/"
@@ -69,18 +72,25 @@ assert packages['linux-omarchy-j713']=='7.1.9.j713-4'
 assert packages['aquamarine']=='0.14.0-3'
 assert {'omarchy-dev','omarchy-settings-dev','mkinitcpio','systemd','networkmanager'} <= packages.keys()
 assert not {'asahi-fwextract','asahi-scripts','linux-asahi','linux-asahi-headers','m1n1','uboot-asahi','grub'} & packages.keys()
+assert not any(name == 'linux-firmware' or name.startswith('linux-firmware-') for name in packages)
 PY
 python3 - "$images" "$output" <<'PY'
 import hashlib,json,sys
 from pathlib import Path
 images,output=map(Path,sys.argv[1:])
 records={}
+fresh = json.loads((images/'fresh-filesystems.json').read_text())
 for name in ('root.img','boot.img','initramfs.img'):
     digest=hashlib.sha256()
     with (images/name).open('rb') as reader:
         while chunk:=reader.read(4*1024*1024): digest.update(chunk)
     records[name]={'size_bytes':(images/name).stat().st_size,'sha256':digest.hexdigest()}
+    if name in ('root.img', 'boot.img') and digest.hexdigest() != fresh.get(name):
+        raise ValueError('image changed since fresh filesystem construction')
 (output/'verification.json').write_text(json.dumps(records,indent=2)+'\n')
+(output/'firmware-free.json').write_text(json.dumps({
+    'schema_version': 1, 'fresh_filesystems': True,
+    'vendor_firmware_files': [], 'vendor_firmware_packages': []}, indent=2)+'\n')
 PY
 printf 'passed\n' > "$output/result"
 chown -R "${HOST_UID:?}:${HOST_GID:?}" "$output"

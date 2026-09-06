@@ -17,7 +17,7 @@ def kernel_command_line(root_uuid):
         'console=tty0 console=ttySAC0,115200 loglevel=3 nohlt nokaslr '
         'clocksource.arm_arch_timer.evtstrm=0 iommu.passthrough=1 clk_ignore_unused '
         'pd_ignore_unused efi=noruntime panic=0 root=UUID=' + root_uuid
-        + ' rootflags=subvol=@ rw systemd.unit=graphical.target'
+        + ' rootflags=subvol=@ rw systemd.unit=graphical.target firmware_class.path=/vendorfw'
     )
 
 
@@ -29,15 +29,22 @@ def build(inputs, images, grub_build, enablement, output):
     output.mkdir(exist_ok=False)
     command_line = kernel_command_line(root_uuid)
     configuration = (
-        "set timeout=3\nset default=0\nmenuentry 'Omarchy M4 — first boot' {\n"
+        "set timeout=3\nset default=0\n"
+        # U-Boot loads this EFI from the UUID-selected ESP. Do not search other
+        # disks for an identically named firmware file or a shared image UUID.
+        "if ! regexp --set=1:omarchy_esp '^\\(([^)]+)\\)' \"$cmdpath\"; then\n"
+        "  echo 'Cannot identify the Omarchy EFI partition'; sleep --interruptible 30; halt\nfi\n"
+        "if [ ! -f ($omarchy_esp)/vendorfw/firmware.cpio ]; then\n"
+        "  echo 'Missing Apple firmware prepared by the installer'; sleep --interruptible 30; halt\nfi\n"
+        "menuentry 'Omarchy M4 — first boot' {\n"
         '  linux (memdisk)/boot/Image ' + command_line
-        + '\n  initrd (memdisk)/boot/initramfs.cpio\n}\n'
+        + '\n  initrd (memdisk)/boot/initramfs.cpio ($omarchy_esp)/vendorfw/firmware.cpio\n}\n'
     )
     (output / 'grub.cfg').write_text(configuration)
     subprocess.run([
         str(grub_build / 'grub-mkstandalone'), '-O', 'arm64-efi',
         '-d', str(grub_build / 'grub-core'),
-        '--modules=normal configfile linux part_gpt btrfs search search_fs_uuid echo cat',
+        '--modules=normal configfile linux part_gpt btrfs fat regexp test sleep halt echo cat',
         '--locales=', '--fonts=', '-o', str(output / 'BOOTAA64.EFI'),
         'boot/grub/grub.cfg=' + str(output / 'grub.cfg'),
         'boot/Image=' + str(inputs / 'kernel/Image'),

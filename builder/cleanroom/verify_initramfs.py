@@ -1,43 +1,82 @@
-"""Read mkinitcpio's early CPIO plus zstd archive without executing guest code."""
+"""Read every early, compressed and trailing initramfs archive without execution."""
+import ctypes
 import hashlib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import stat
 import subprocess
 import sys
 
-image, firmware, thermal = map(Path, sys.argv[1:])
-data = image.read_bytes()
-offset = data.find(b'\x28\xb5\x2f\xfd', 0, 8 * 1024 * 1024)
-if offset < 0:
-    raise ValueError('missing zstd initramfs stream')
-data = subprocess.run(['zstd', '-d', '-c'], input=data[offset:], capture_output=True, check=True).stdout
-members = {}
-offset = 0
-while offset + 110 <= len(data):
-    header = data[offset:offset + 110]
-    if header[:6] != b'070701':
-        raise ValueError('invalid newc initramfs')
-    fields = [int(header[6 + i * 8:14 + i * 8], 16) for i in range(13)]
-    size, namesize = fields[6], fields[11]
-    name = data[offset + 110:offset + 110 + namesize - 1].decode()
-    offset = (offset + 110 + namesize + 3) & ~3
-    body = data[offset:offset + size]
-    if len(body) != size:
-        raise ValueError('truncated initramfs member')
-    offset = (offset + size + 3) & ~3
-    if name == 'TRAILER!!!':
-        break
-    if name in members:
-        raise ValueError('duplicate initramfs member')
-    members[name.removeprefix('./')] = hashlib.sha256(body).hexdigest()
-for folder in ('apple', 'brcm'):
-    for source in (firmware / folder).iterdir():
-        name = 'usr/lib/firmware/' + source.relative_to(firmware).as_posix()
-        if members.get(name) != hashlib.sha256(source.read_bytes()).hexdigest():
-            raise ValueError('initramfs firmware mismatch: ' + name)
-release = thermal.parents[3].name
-name = 'usr/lib/modules/' + release + '/kernel/drivers/thermal/apple-pmp-thermal.ko'
-if members.get(name) != hashlib.sha256(thermal.read_bytes()).hexdigest():
-    raise ValueError('initramfs thermal module mismatch')
-if not {'init', 'usr/lib/systemd/systemd', 'usr/lib/firmware/regulatory.db'} <= members.keys():
-    raise ValueError('incomplete systemd initramfs')
-print('initramfs: exact seven firmware files, matching thermal module and systemd init verified')
+
+def members(data):
+    result = {}
+    offset = 0
+    while offset < len(data):
+        if data[offset] == 0:
+            offset += 1
+            continue
+        if data[offset:offset + 4] == b'\x28\xb5\x2f\xfd':
+            library = ctypes.CDLL('libzstd.so.1')
+            library.ZSTD_findFrameCompressedSize.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+            library.ZSTD_findFrameCompressedSize.restype = ctypes.c_size_t
+            library.ZSTD_isError.argtypes = [ctypes.c_size_t]
+            library.ZSTD_isError.restype = ctypes.c_uint
+            source = ctypes.create_string_buffer(data[offset:])
+            length = library.ZSTD_findFrameCompressedSize(source, len(data) - offset)
+            if library.ZSTD_isError(length) or not 0 < length <= len(data) - offset:
+                raise ValueError('invalid zstd initramfs frame')
+            expanded = subprocess.run(['zstd', '-d', '-c'], input=data[offset:offset + length],
+                                      capture_output=True, check=True).stdout
+            for name, value in members(expanded).items():
+                add_member(result, name, value)
+            offset += length
+            continue
+        start = offset
+        header = data[offset:offset + 110]
+        if len(header) != 110 or header[:6] != b'070701':
+            raise ValueError('unsupported or malformed initramfs archive')
+        fields = [int(header[6 + i * 8:14 + i * 8], 16) for i in range(13)]
+        mode, size, namesize = fields[1], fields[6], fields[11]
+        if not 1 <= namesize <= 4096:
+            raise ValueError('invalid initramfs name size')
+        raw = data[offset + 110:offset + 110 + namesize]
+        if len(raw) != namesize or raw[-1:] != b'\0' or b'\0' in raw[:-1]:
+            raise ValueError('invalid initramfs member name')
+        name = raw[:-1].decode()
+        offset = start + ((110 + namesize + 3) & ~3)
+        body = data[offset:offset + size]
+        if len(body) != size:
+            raise ValueError('truncated initramfs member')
+        offset += (size + 3) & ~3
+        if name == 'TRAILER!!!':
+            continue
+        normalized = str(PurePosixPath(name))
+        if PurePosixPath(normalized).is_absolute() or '..' in PurePosixPath(normalized).parts:
+            raise ValueError('unsafe initramfs member name')
+        add_member(result, normalized, (mode, hashlib.sha256(body).hexdigest()))
+    return result
+
+
+def add_member(result, name, value):
+    if name in result and not ((stat.S_ISDIR(value[0]) or stat.S_ISLNK(value[0]))
+                               and result[name] == value):
+        raise ValueError('duplicate initramfs member: ' + name)
+    result[name] = value
+
+
+def verify(image, thermal):
+    records = members(image.read_bytes())
+    allowed = {'usr/lib/firmware/regulatory.db', 'usr/lib/firmware/regulatory.db.p7s'}
+    for name, (mode, digest) in records.items():
+        if not stat.S_ISDIR(mode) and name.startswith(('vendorfw/', 'usr/lib/firmware/', 'lib/firmware/')) and name not in allowed:
+            raise ValueError('distributed initramfs contains vendor firmware: ' + name)
+    release = thermal.parents[3].name
+    name = 'usr/lib/modules/' + release + '/kernel/drivers/thermal/apple-pmp-thermal.ko'
+    if records.get(name, (None, None))[1] != hashlib.sha256(thermal.read_bytes()).hexdigest():
+        raise ValueError('initramfs thermal module mismatch')
+    if not {'init', 'usr/lib/systemd/systemd', 'usr/lib/firmware/regulatory.db'} <= records.keys():
+        raise ValueError('incomplete systemd initramfs')
+    print('all initramfs archives: no vendor firmware, matching thermal module and systemd init verified')
+
+
+if __name__ == '__main__':
+    verify(*map(Path, sys.argv[1:]))

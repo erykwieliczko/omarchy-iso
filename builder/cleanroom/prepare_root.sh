@@ -12,7 +12,7 @@ graphics_package=aquamarine-0.14.0-3-aarch64.pkg.tar.zst
 
 fail() { echo "cleanroom-root: $*" >&2; exit 1; }
 [[ ! -e $output && ! -L $output ]] || fail "output already exists"
-[[ -f $input/$kernel_package && -d $input/firmware ]] || fail "missing admitted kernel or firmware"
+[[ -f $input/$kernel_package ]] || fail "missing admitted kernel"
 for name in root.img boot.img; do
   [[ -f $base/$name && ! -L $base/$name ]] || fail "base image is unsafe"
   expected=$(cat "$base/$name.sha256")
@@ -63,25 +63,23 @@ arch-chroot "$target" pacman --noconfirm -R \
   asahi-fwextract asahi-scripts linux-asahi linux-asahi-headers m1n1 uboot-asahi grub
 [[ ! -e $target/usr/bin/update-m1n1 ]] || fail "stock boot writer remains"
 
-# The source release's first-boot vendor firmware importer remains available;
-# built-in J713 drivers additionally need these files in the early initramfs.
-while IFS= read -r -d '' file; do
-  relative=${file#"$input/firmware/"}
-  install -Dm0644 "$file" "$target/usr/lib/firmware/$relative"
-done < <(find "$input/firmware/apple" "$input/firmware/brcm" -type f -print0)
+# Apple firmware arrives on the ESP during installation. Generic vendor
+# firmware packages must also be absent from the distributed image.
+mapfile -t firmware_packages < <(arch-chroot "$target" pacman -Qq | sed -n '/^linux-firmware\($\|-\)/p')
+if (( ${#firmware_packages[@]} )); then
+  arch-chroot "$target" pacman --noconfirm -R "${firmware_packages[@]}"
+fi
+find "$target/usr/lib/firmware" -mindepth 1 -maxdepth 1 \
+  ! -name regulatory.db ! -name regulatory.db.p7s -exec rm -rf -- {} +
+find "$target/var/cache/pacman/pkg" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+rm -rf "$target/boot/efi/vendorfw"
+rm -f "$target/boot/"initramfs* "$target/var/lib/omarchy/vendor-firmware.stamp"
 mkdir -p "$target/etc/mkinitcpio.conf.d"
 rm -f "$target/etc/mkinitcpio.conf.d/90-omarchy-asahi.conf"
 cat > "$target/etc/mkinitcpio.conf.d/95-omarchy-cleanroom.conf" <<'CONFIG'
 MODULES=(apple_pmp_thermal)
 HOOKS=(base systemd modconf keyboard sd-vconsole block filesystems fsck)
 FILES=(
-  /usr/lib/firmware/apple/tpmtfw-j713.bin
-  /usr/lib/firmware/brcm/brcmfmac4388c2-pcie.apple,garden.bin
-  /usr/lib/firmware/brcm/brcmfmac4388c2-pcie.apple,garden.sig
-  /usr/lib/firmware/brcm/brcmfmac4388c2-pcie.apple,garden.clm_blob
-  /usr/lib/firmware/brcm/brcmfmac4388c2-pcie.apple,garden.txcap_blob
-  /usr/lib/firmware/brcm/brcmfmac4388c2-pcie.apple,garden-WLMT-u.txt
-  /usr/lib/firmware/brcm/brcmfmac4388c2-pcie.apple,garden-WLMT-a.txt
   /usr/lib/firmware/regulatory.db
   /usr/lib/firmware/regulatory.db.p7s
 )
@@ -124,19 +122,20 @@ cp "$target/etc/mkinitcpio.conf.d/95-omarchy-cleanroom.conf" "$output/mkinitcpio
 [[ -L $target/etc/systemd/system/multi-user.target.wants/NetworkManager.service ]] \
   || fail "network setup is not enabled"
 
-# Recreate the factory snapshot from this variant, without retaining the old
-# kernel or a user-specific machine identity in its rollback image.
+# The fresh-filesystem repack below creates the factory snapshot. Merely
+# deleting blobs and snapshots leaves their bytes in unallocated image blocks.
 : > "$target/etc/machine-id"
 rm -f "$target/var/lib/systemd/random-seed" "$target/etc/ssh/ssh_host_"*
 sync
-btrfs subvolume snapshot "$top/@" "$top/@factory"
-btrfs property set -ts "$top/@factory" ro true
 umount -R "$target"
 umount "$top"
 for loop in "${loops[@]}"; do losetup -d "$loop"; done
 loops=()
-fallocate --dig-holes "$output/root.img"
-fallocate --dig-holes "$output/boot.img"
+/bin/bash "${BASH_SOURCE[0]%/*}/repack_images.sh" "$output" "$output/fresh"
+mv "$output/fresh/root.img" "$output/root.img"
+mv "$output/fresh/boot.img" "$output/boot.img"
+mv "$output/fresh/fresh-filesystems.json" "$output/"
+rmdir "$output/fresh"
 printf '%s\n' "$root_uuid" > "$output/root-uuid"
 
 chown -R "${HOST_UID:?}:${HOST_GID:?}" "$output"

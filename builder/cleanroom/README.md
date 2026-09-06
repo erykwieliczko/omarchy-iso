@@ -10,22 +10,38 @@ attachments are regular input/output image files; no physical disk is accepted.
 Use the pinned base image, package closure, source graph and build receipts from
 the candidate. Do not replace them with an unrecorded current branch or image.
 
-The sequence is `build_kernel.py`, `extract_base.py`, `build_kernel_package.sh`, `prepare_root.sh`,
+The sequence is `build_kernel.py`, `extract_base.py`, `build_kernel_package.sh`, `build_u_boot.py`, `prepare_root.sh`,
 `verify_root.sh`, then `build_boot.py`. Each output directory must be new. Pass
 `HOST_UID`/`HOST_GID` to the container so artifacts are returned to their owner.
-`verify_initramfs.py` proves the same seven generic firmware blobs and thermal
-module exist in the embedded initramfs. `verification.json` binds the exact
+`prepare_root.sh` removes vendor firmware packages and caches. Its final
+`repack_images.sh` step formats new zero-initialized filesystems, copies only
+the cleaned live files and creates the new factory snapshot. Deleting files
+from the original images alone would retain firmware in unallocated blocks.
+`verify_no_firmware.py` audits all subvolumes and boot files;
+`verify_initramfs.py` inspects every early, compressed and trailing CPIO archive
+for firmware absence and requires the matching thermal module.
+`verification.json` binds the exact
 root, boot and initramfs bytes; compare it with the sealed payload receipt.
 
 The kernel source artifacts must include Image, config, the J713 DTB and the
 complete modules_install output, without a build-directory symlink. The input
-manifest records every kernel/package/firmware/boot digest. The accepted source
+manifest records every kernel/package/boot digest and rejects vendor firmware
+inputs. Regulatory database files are retained; they are not vendor firmware.
+The accepted source
 revisions are recorded by the installer model profile and candidate receipts.
 
 `build_boot.py` embeds Image, initramfs and a root-UUID GRUB configuration using
 the accepted GRUB build, then invokes the accepted enablement checkout's
 `build_chainload.sh --disk-boot`. The emitted ESP contains this boot.bin plus the
 matching standalone EFI image. Do not carry stock boot.bin backups forward.
+`build_u_boot.py` pins `bootloader/u-boot.config`: the memory-only preloaded EFI
+path is disabled, and `load nvme ${fw_dev_part}` records the real ESP device path
+before `bootefi`. The selected partition comes from m1n1's generated ESP UUID.
+GRUB can therefore load `/vendorfw/firmware.cpio` from its own `$cmdpath` device,
+after its embedded firmware-free initramfs. The kernel's
+`firmware_class.path=/vendorfw` makes those per-install files available early.
+The macOS installer obtains and validates them directly from Apple before
+partitioning; no firmware CPIO is included in these published artifacts.
 
 This candidate boots to graphical.target using Mesa llvmpipe and the patched
 Aquamarine software EGL fallback. It uses the model-level root image
