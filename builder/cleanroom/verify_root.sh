@@ -30,7 +30,7 @@ mount -o ro,subvol=@ "$root_loop" "$target"
 mount -o ro "$boot_loop" "$target/boot"
 mount -o ro,subvolid=5 "$root_loop" "$top"
 python3 "${BASH_SOURCE[0]%/*}/verify_no_firmware.py" "$top" "$target/boot" > "$output/firmware-inventory.txt"
-cmp "$images/initramfs.img" "$target/boot/initramfs-linux-omarchy-j713.img"
+cmp "$images/initramfs.img" "$target/boot/initramfs-linux-omarchy-mac.img"
 python3 "${BASH_SOURCE[0]%/*}/verify_initramfs.py" "$images/initramfs.img" "$input/kernel/lib/modules/$release/kernel/drivers/thermal/apple-pmp-thermal.ko" > "$output/initramfs.txt"
 [[ $(blkid -s UUID -o value "$root_loop") == "4f4d5801-524f-4f54-8713-000000000001" ]]
 [[ ! -s $target/etc/machine-id ]]
@@ -68,7 +68,7 @@ python3 - "$images/installed-packages.txt" <<'PY'
 import sys
 from pathlib import Path
 packages=dict(line.split(' ',1) for line in Path(sys.argv[1]).read_text().splitlines())
-assert packages['linux-omarchy-j713']=='7.1.9.j713-4'
+assert packages['linux-omarchy-mac']=='7.1.9.mac-1'
 assert packages['aquamarine']=='0.14.0-3'
 assert {'omarchy-dev','omarchy-settings-dev','mkinitcpio','systemd','networkmanager'} <= packages.keys()
 assert not {'asahi-fwextract','asahi-scripts','linux-asahi','linux-asahi-headers','m1n1','uboot-asahi','grub'} & packages.keys()

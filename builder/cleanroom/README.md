@@ -1,9 +1,9 @@
-# Private J713 filesystem variant
+# Private M4 and Neo filesystem variant
 
 This recipe derives a fresh-install image from the admitted Omarchy full-OS
 release in `extract_base.py`. It retains the standard first-boot provisioning
 and vendor-firmware services while replacing stock Asahi boot writers with the
-accepted cleanroom J713 kernel and complete matching module set.
+shared cleanroom M4/J713 and Neo/J700 kernel and complete matching module set.
 
 All image operations run in a disposable native Linux builder. The only loop
 attachments are regular input/output image files; no physical disk is accepted.
@@ -11,7 +11,7 @@ Use the pinned base image, package closure, source graph and build receipts from
 the candidate. Do not replace them with an unrecorded current branch or image.
 
 The sequence is `build_kernel.py`, `extract_base.py`, `build_kernel_package.sh`, `build_u_boot.py`, `prepare_root.sh`,
-`verify_root.sh`, then `build_boot.py`. Each output directory must be new. Pass
+`verify_root.sh`, then `build_neo_dtb.py` and `build_boot.py`. Each output directory must be new. Pass
 `HOST_UID`/`HOST_GID` to the container so artifacts are returned to their owner.
 `prepare_root.sh` removes vendor firmware packages and caches. Its final
 `repack_images.sh` step formats new zero-initialized filesystems, copies only
@@ -23,25 +23,29 @@ for firmware absence and requires the matching thermal module.
 `verification.json` binds the exact
 root, boot and initramfs bytes; compare it with the sealed payload receipt.
 
-The kernel source artifacts must include Image, config, the J713 DTB and the
+The kernel source artifacts must include the shared Image, config, the J713 DTB and the
 complete modules_install output, without a build-directory symlink. The input
 manifest records every kernel/package/boot digest and rejects vendor firmware
 inputs. Regulatory database files are retained; they are not vendor firmware.
 The accepted source
 revisions are recorded by the installer model profile and candidate receipts.
 
-`build_boot.py` embeds Image, initramfs and a root-UUID GRUB configuration using
-the accepted GRUB build, then invokes the accepted enablement checkout's
-`build_chainload.sh --disk-boot`. The emitted ESP contains this boot.bin plus the
-matching standalone EFI image. Do not carry stock boot.bin backups forward.
-`build_u_boot.py` pins `bootloader/u-boot.config`: the memory-only preloaded EFI
-path is disabled, and `load nvme ${fw_dev_part}` records the real ESP device path
-before `bootefi`. The selected partition comes from m1n1's generated ESP UUID.
-GRUB can therefore load `/vendorfw/firmware.cpio` from its own `$cmdpath` device,
-after its embedded firmware-free initramfs. The kernel's
-`firmware_class.path=/vendorfw` makes those per-install files available early.
-The macOS installer obtains and validates them directly from Apple before
-partitioning; no firmware CPIO is included in these published artifacts.
+`build_boot.py` emits `j713/` and `j700/` ESP inputs. Both contain the same
+Image and initramfs, a small standalone GRUB EFI, and the same combined m1n1
+payload. The payload has both model DTBs and a padded/compressed U-Boot ARM64
+Image, without a terminator before stage1's generated chosen variables.
+`build_neo_dtb.py` builds the pinned U-Boot J700 fixture with native input,
+USB, PCIe, Wi-Fi and thermal handoff. M4 uses the selected kernel's own DTB.
+The J700 thermal/DVFS handoff has physical qualification on Apple 25F84;
+other firmware builds require new physical qualification.
+
+`build_u_boot.py` resolves the ESP from m1n1's generated partition UUID, checks
+that the EFI file fits Neo's 64 MiB load buffer, and calls `bootefi`. GRUB loads
+`omarchy/Image`, `omarchy/initramfs.img` and `vendorfw/firmware.cpio` from its
+own `$cmdpath` partition. Neo alone adds `idle=nop arm64.nowfxt`; M4 keeps its
+command line. Both use `firmware_class.path=/vendorfw` for early firmware.
+The installer obtains firmware directly from Apple and calibration from the
+target Mac before partitioning; none is included in these build artifacts.
 
 This candidate boots to graphical.target using Mesa llvmpipe and the patched
 Aquamarine software EGL fallback. It uses the model-level root image
@@ -116,5 +120,5 @@ file, build script, logs and screenshots. Clang/LLD run natively on the Linux
 build machine; qemu-aarch64 runs only the ARM64 protocol generator and unit test.
 `build_graphics_package.sh` packages the staged library and headers as Aquamarine
 0.14.0-3. The package retains the source license and a build receipt. This package
-and the new kernel package must both be included in `j713-boot-inputs.json` before
+and the new kernel package must both be included in `mac-boot-inputs.json` before
 image construction. See `graphics/README.md` for the build and validation recipe.

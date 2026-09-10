@@ -26,8 +26,8 @@ def verify(top, boot):
                 continue
             name = p.name.lower()
             if (name.endswith(('.im4p', '.ipsw', '.dmg.aea', '.trx', '.clmb', '.txcb'))
-                    or name in ('apple-restore.zip', 'firmware.tar', 'firmware.cpio', 'tpmtfw-j713.bin')
-                    or name.startswith('brcmfmac4388') or '.pkg.tar.' in name):
+                    or name in ('apple-restore.zip', 'firmware.tar', 'firmware.cpio', 'tpmtfw-j713.bin', 'tpmtfw-j700.bin', 'wcal.bin', 'oca2.bin', 'config-original.bin')
+                    or name.startswith(('brcmfmac4388', 'izuba_')) or '.pkg.tar.' in name):
                 raise ValueError('possible retained vendor firmware or package archive: ' + str(p))
     print('all subvolumes and boot files: no vendor firmware or cached packages')
 

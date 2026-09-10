@@ -7,7 +7,7 @@ base=${2:?verified base image directory}
 output=${3:?new output directory}
 release=$(cat "$input/kernel/kernel.release")
 root_uuid=4f4d5801-524f-4f54-8713-000000000001
-kernel_package=linux-omarchy-j713-7.1.9.j713-4-aarch64.pkg.tar.zst
+kernel_package=linux-omarchy-mac-7.1.9.mac-1-aarch64.pkg.tar.zst
 graphics_package=aquamarine-0.14.0-3-aarch64.pkg.tar.zst
 
 fail() { echo "cleanroom-root: $*" >&2; exit 1; }
@@ -91,7 +91,7 @@ rm "$target/var/tmp/$kernel_package"
 [[ -f $target/usr/lib/modules/$release/kernel/drivers/thermal/apple-pmp-thermal.ko ]] \
   || fail "matching thermal module is missing"
 arch-chroot "$target" depmod "$release"
-arch-chroot "$target" mkinitcpio -k "$release" -g /boot/initramfs-linux-omarchy-j713.img
+arch-chroot "$target" mkinitcpio -k "$release" -g /boot/initramfs-linux-omarchy-mac.img
 sed -i "s/4f4d5801-524f-4f54-8000-000000000001/$root_uuid/g" "$target/etc/fstab"
 
 # Software EGL support applies to both the SDDM greeter and the uwsm session.
@@ -111,9 +111,9 @@ install -Dm0644 "${BASH_SOURCE[0]%/*}/config/sddm-software-rendering.conf" \
 arch-chroot "$target" systemctl mask speakersafetyd.service
 
 mkdir -p "$target/usr/share/omarchy/cleanroom"
-install -m0644 "$input/j713-boot-inputs.json" "$target/usr/share/omarchy/cleanroom/boot-inputs.json"
+install -m0644 "$input/mac-boot-inputs.json" "$target/usr/share/omarchy/cleanroom/boot-inputs.json"
 arch-chroot "$target" pacman -Q > "$output/installed-packages.txt"
-cp "$target/boot/initramfs-linux-omarchy-j713.img" "$output/initramfs.img"
+cp "$target/boot/initramfs-linux-omarchy-mac.img" "$output/initramfs.img"
 cp "$target/etc/fstab" "$output/fstab"
 cp "$target/etc/mkinitcpio.conf.d/95-omarchy-cleanroom.conf" "$output/mkinitcpio.conf"
 [[ -f $target/var/lib/omarchy/provisioning/pending ]] || fail "first-boot setup is missing"
