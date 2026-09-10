@@ -45,7 +45,18 @@ cmp "${BASH_SOURCE[0]%/*}/config/provision-firmware.conf" \
 [[ -f $target/usr/share/zoneinfo/iso3166.tab && -x $target/usr/bin/iw ]]
 [[ ! -e $target/neo-installer-debug ]]
 [[ -z $(find "$target/usr/lib/modules" -name 'neo_poll_tty*' -print -quit) ]]
-! grep -R -E -l 'neo_installer_console|neo_poll_tty|neo-installer-debug' "$target/etc/systemd/system"
+python3 - "$target" <<'PYDIAG'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+for directory in ('etc/systemd/system', 'usr/lib/systemd/system'):
+    for path in (root / directory).rglob('*'):
+        if path.is_symlink() or not path.is_file():
+            continue
+        if any(marker in path.read_bytes() for marker in
+               (b'neo_installer_console', b'neo_poll_tty', b'neo-installer-debug')):
+            raise SystemExit('diagnostic unit remains: ' + str(path))
+PYDIAG
 [[ -L $target/etc/systemd/system/multi-user.target.wants/omarchy-provision-owner.service ]]
 [[ -L $target/etc/systemd/system/multi-user.target.wants/omarchy-vendor-firmware.service ]]
 [[ -L $target/etc/systemd/system/multi-user.target.wants/NetworkManager.service ]]
