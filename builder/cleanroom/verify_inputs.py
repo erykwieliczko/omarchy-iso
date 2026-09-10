@@ -19,7 +19,8 @@ def verify(directory):
     required = {"j700.dtb", "kernel/Image", "kernel/config", "kernel/t8132-j713.dtb", "m1n1-stage2.bin", "u-boot.bin",
                 "kernel/kernel.release", "kernel/build-receipt.json", "u-boot.config", "u-boot-receipt.json",
                 "linux-omarchy-mac-7.1.9.mac-1-aarch64.pkg.tar.zst",
-                "aquamarine-0.14.0-3-aarch64.pkg.tar.zst"}
+                "aquamarine-0.14.0-3-aarch64.pkg.tar.zst",
+                "runtime/bin/omarchy-provision-owner", "runtime/install/provisioning/wifi-country.sh"}
     if not required.issubset(manifest["artifacts"]):
         raise ValueError("incomplete cleanroom artifact set")
     if any(name == 'apple-restore.zip' or name.startswith('firmware/')
@@ -46,6 +47,7 @@ def verify(directory):
         raise ValueError('U-Boot build receipt does not match admitted disk loader')
     config = (directory / 'u-boot.config').read_text().splitlines()
     if not {'# CONFIG_APPLE_PRELOADED_EFI is not set', 'CONFIG_ENV_IS_NOWHERE=y',
+            'CONFIG_WDT_APPLE_PRESERVE_INHERITED_STATE=y',
             'CONFIG_BOOTCOMMAND="' + BOOTCOMMAND + '"'} <= set(config):
         raise ValueError('U-Boot does not load the UUID-bound ESP')
     if 'CONFIG_EXTRA_FIRMWARE=""' not in (directory / 'kernel/config').read_text().splitlines():

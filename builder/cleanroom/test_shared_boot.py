@@ -4,6 +4,7 @@ import struct
 import unittest
 
 from build_boot import disk_payload, kernel_command_line
+from build_u_boot import BOOTCOMMAND
 
 
 class SharedBootTests(unittest.TestCase):
@@ -31,6 +32,20 @@ class SharedBootTests(unittest.TestCase):
         for line in (m4, neo):
             self.assertIn('root=UUID=' + root, line)
             self.assertIn('systemd.unit=graphical.target', line)
+
+    def test_efi_command_preserves_disk_device_path(self):
+        self.assertIn('then bootefi ${loadaddr} ${fdtcontroladdr};', BOOTCOMMAND)
+        self.assertNotIn('bootefi ${loadaddr}:', BOOTCOMMAND)
+        for check in ('nvme scan', 'part number', 'fatsize', 'itest ${filesize} -le 0x4000000', 'fatload'):
+            self.assertIn(check, BOOTCOMMAND)
+
+    def test_setup_keeps_logs_off_console(self):
+        for model in ('j713', 'j700'):
+            args = kernel_command_line('4f4d5801-524f-4f54-8713-000000000001', model).split()
+            self.assertIn('quiet', args)
+            self.assertIn('loglevel=3', args)
+            for diagnostic in ('keep_bootcon', 'ignore_loglevel', 'loglevel=7', 'systemd.log_target=kmsg'):
+                self.assertNotIn(diagnostic, args)
 
     def test_invalid_or_oversized_uboot_is_rejected(self):
         for size in (0, 63, 64 * 1024**2 + 1):

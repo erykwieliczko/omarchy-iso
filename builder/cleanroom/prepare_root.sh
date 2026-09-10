@@ -94,6 +94,15 @@ arch-chroot "$target" depmod "$release"
 arch-chroot "$target" mkinitcpio -k "$release" -g /boot/initramfs-linux-omarchy-mac.img
 sed -i "s/4f4d5801-524f-4f54-8000-000000000001/$root_uuid/g" "$target/etc/fstab"
 
+# Admit the first-run changes alongside the kernel; the base image contains an
+# older runtime package, including a standalone /usr/bin provisioner copy.
+install -Dm0755 "$input/runtime/bin/omarchy-provision-owner" "$target/usr/bin/omarchy-provision-owner"
+install -Dm0755 "$input/runtime/bin/omarchy-provision-owner" "$target/usr/share/omarchy/bin/omarchy-provision-owner"
+install -Dm0644 "$input/runtime/install/provisioning/wifi-country.sh" \
+  "$target/usr/share/omarchy/install/provisioning/wifi-country.sh"
+install -Dm0644 "${BASH_SOURCE[0]%/*}/config/provision-firmware.conf" \
+  "$target/etc/systemd/system/omarchy-provision-owner.service.d/firmware.conf"
+
 # Software EGL support applies to both the SDDM greeter and the uwsm session.
 cp "$input/$graphics_package" "$target/var/tmp/$graphics_package"
 arch-chroot "$target" pacman --noconfirm -U "/var/tmp/$graphics_package"

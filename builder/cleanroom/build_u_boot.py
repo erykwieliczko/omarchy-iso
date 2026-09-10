@@ -9,8 +9,8 @@ import subprocess
 import tarfile
 
 
-REVISION = 'ab2cdaf1dd94dc75d43935ec7c79bd86bfcfc167'
-BOOTCOMMAND = 'if fdt addr ${fdtcontroladdr} && fdt get value omarchy_esp /chosen asahi,efi-system-partition && nvme scan && part number nvme 0 ${omarchy_esp} omarchy_part && fatsize nvme 0:${omarchy_part} /EFI/BOOT/BOOTAA64.EFI && itest ${filesize} -le 0x4000000 && fatload nvme 0:${omarchy_part} ${loadaddr} /EFI/BOOT/BOOTAA64.EFI; then bootefi ${loadaddr}:${filesize} ${fdtcontroladdr}; else echo Omarchy disk boot failed; fi'
+REVISION = 'eb052fe3f2871bf8cdddf25ec600ef7dfec0269f'
+BOOTCOMMAND = 'if fdt addr ${fdtcontroladdr} && fdt get value omarchy_esp /chosen asahi,efi-system-partition && nvme scan && part number nvme 0 ${omarchy_esp} omarchy_part && fatsize nvme 0:${omarchy_part} /EFI/BOOT/BOOTAA64.EFI && itest ${filesize} -le 0x4000000 && fatload nvme 0:${omarchy_part} ${loadaddr} /EFI/BOOT/BOOTAA64.EFI; then bootefi ${loadaddr} ${fdtcontroladdr}; else echo Omarchy disk boot failed; fi'
 
 
 def build(checkout, output):

@@ -36,6 +36,16 @@ python3 "${BASH_SOURCE[0]%/*}/verify_initramfs.py" "$images/initramfs.img" "$inp
 [[ ! -s $target/etc/machine-id ]]
 [[ ! -e $target/usr/bin/update-m1n1 ]]
 [[ -f $target/var/lib/omarchy/provisioning/pending ]]
+cmp "$input/runtime/bin/omarchy-provision-owner" "$target/usr/bin/omarchy-provision-owner"
+cmp "$input/runtime/bin/omarchy-provision-owner" "$target/usr/share/omarchy/bin/omarchy-provision-owner"
+cmp "$input/runtime/install/provisioning/wifi-country.sh" \
+  "$target/usr/share/omarchy/install/provisioning/wifi-country.sh"
+cmp "${BASH_SOURCE[0]%/*}/config/provision-firmware.conf" \
+  "$target/etc/systemd/system/omarchy-provision-owner.service.d/firmware.conf"
+[[ -f $target/usr/share/zoneinfo/iso3166.tab && -x $target/usr/bin/iw ]]
+[[ ! -e $target/neo-installer-debug ]]
+[[ -z $(find "$target/usr/lib/modules" -name 'neo_poll_tty*' -print -quit) ]]
+! grep -R -E -l 'neo_installer_console|neo_poll_tty|neo-installer-debug' "$target/etc/systemd/system"
 [[ -L $target/etc/systemd/system/multi-user.target.wants/omarchy-provision-owner.service ]]
 [[ -L $target/etc/systemd/system/multi-user.target.wants/omarchy-vendor-firmware.service ]]
 [[ -L $target/etc/systemd/system/multi-user.target.wants/NetworkManager.service ]]

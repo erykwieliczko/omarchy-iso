@@ -19,7 +19,7 @@ def kernel_command_line(root_uuid, model="j713"):
     if model not in ("j713", "j700"):
         raise ValueError("unknown boot model")
     return (
-        'console=tty0 console=ttySAC0,115200 loglevel=3 nohlt nokaslr '
+        'console=tty0 console=ttySAC0,115200 quiet loglevel=3 nohlt nokaslr '
         'clocksource.arm_arch_timer.evtstrm=0 iommu.passthrough=1 clk_ignore_unused '
         'pd_ignore_unused efi=noruntime panic=0 root=UUID=' + root_uuid
         + ' rootflags=subvol=@ rw systemd.unit=graphical.target firmware_class.path=/vendorfw'

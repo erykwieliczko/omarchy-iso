@@ -35,14 +35,16 @@ Image and initramfs, a small standalone GRUB EFI, and the same combined m1n1
 payload. The payload has both model DTBs and a padded/compressed U-Boot ARM64
 Image, without a terminator before stage1's generated chosen variables.
 `build_neo_dtb.py` builds the pinned U-Boot J700 fixture with native input,
-USB, PCIe, Wi-Fi and thermal handoff. M4 uses the selected kernel's own DTB.
+USB, PCIe, Wi-Fi, Linux NVMe and thermal handoff. Its selective Wi-Fi DART
+policy bypasses only static SIDs 16/18 and retains the paired live-ADT guard. M4 uses the selected kernel's own DTB.
 The J700 thermal/DVFS handoff has physical qualification on Apple 25F84;
 other firmware builds require new physical qualification.
 
 `build_u_boot.py` resolves the ESP from m1n1's generated partition UUID, checks
 that the EFI file fits Neo's 64 MiB load buffer, and calls `bootefi`. GRUB loads
 `omarchy/Image`, `omarchy/initramfs.img` and `vendorfw/firmware.cpio` from its
-own `$cmdpath` partition. Neo alone adds `idle=nop arm64.nowfxt`; M4 keeps its
+own `$cmdpath` partition. Pass the load address without `:filesize` to
+`bootefi`, which otherwise clears the disk device path. Neo alone adds `idle=nop arm64.nowfxt`; M4 keeps its
 command line. Both use `firmware_class.path=/vendorfw` for early firmware.
 The installer obtains firmware directly from Apple and calibration from the
 target Mac before partitioning; none is included in these build artifacts.
@@ -93,6 +95,15 @@ fragment and lock, update the PKGBUILD release and package filename pins, and
 build a fresh artifact set. The final initramfs and embedded EFI/boot.bin must
 also be rebuilt: updating a root filesystem's kernel package alone does not
 replace the kernel embedded in this boot chain.
+
+The input manifest also admits `runtime/bin/omarchy-provision-owner` and
+`runtime/install/provisioning/wifi-country.sh` from the selected Omarchy runtime
+revision. Image preparation replaces both provisioner copies and orders setup
+after vendor firmware extraction. On Neo, first-run setup asks for the actual
+country before network selection, merges iwd's General/Country setting, and
+persists the matching wireless regulatory hint. Country policy application
+still needs a normal-reboot hardware check; a configuration file alone is not
+proof. Missing country firmware permits explicit Ethernet/offline setup.
 
 The image removes the debug `earlycon`/`loglevel=7` arguments while
 retaining kernel diagnostics in dmesg and the journal. The standard provisioning service hands off to SDDM and the Omarchy uwsm
