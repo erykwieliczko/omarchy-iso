@@ -6,10 +6,12 @@ import sys
 
 
 FILES = {
-    "bin/omarchy-provision-owner": (
-        "usr/bin/omarchy-provision-owner",
-        "usr/share/omarchy/bin/omarchy-provision-owner",
-    ),
+    **{name: ("usr/" + name, "usr/share/omarchy/" + name) for name in (
+        "bin/omarchy-provision-owner",
+        "bin/omarchy-theme-set-browser",
+        "bin/omarchy-theme-set-browser-policy",
+    )},
+    "etc/sudoers.d/omarchy-theme-browser": ("etc/sudoers.d/omarchy-theme-browser",),
     **{name: ("usr/share/omarchy/" + name,) for name in (
         "install/provisioning/setup-form.sh",
         "install/provisioning/wifi-country.sh",
@@ -31,7 +33,7 @@ def install(inputs, target):
             if path.is_symlink():
                 path.unlink()
             shutil.copyfile(source, path)
-            path.chmod(0o755 if name.startswith("bin/") else 0o644)
+            path.chmod(mode(name))
     verify(inputs, target)
 
 
@@ -42,6 +44,8 @@ def verify(inputs, target):
             path = target / destination
             if path.is_symlink() or not path.is_file() or path.read_bytes() != expected:
                 raise ValueError("first-run runtime file missing or changed: " + destination)
+            if path.stat().st_mode & 0o777 != mode(name):
+                raise ValueError("first-run runtime permissions changed: " + destination)
     # Load the actual helper chain without invoking its machine-policy writes.
     # This catches missing nested sources before an owner account is created.
     subprocess.run([
@@ -49,6 +53,12 @@ def verify(inputs, target):
         'source "$1"; declare -F browser_policy_setup_dir as_root >/dev/null',
         "runtime-check", str(target / "usr/share/omarchy/install/helpers/browser-policy.sh"),
     ], check=True, env={"PATH": "/usr/bin:/bin"})
+
+
+def mode(name):
+    if name.startswith("etc/sudoers.d/"):
+        return 0o440
+    return 0o755 if name.startswith("bin/") else 0o644
 
 
 if __name__ == "__main__":

@@ -97,8 +97,9 @@ also be rebuilt: updating a root filesystem's kernel package alone does not
 replace the kernel embedded in this boot chain.
 
 The input manifest admits the full first-run overlay listed in `runtime.py`:
-the provisioner, setup form, Wi-Fi country helper, browser-policy helper and
-its as-root dependency, all from the selected Omarchy runtime revision. Stage
+the provisioner, setup form, Wi-Fi country helper, browser-policy helper,
+its as-root dependency, both browser theme commands and their narrow sudoers
+rule, all from the selected Omarchy runtime revision. Stage
 each listed path below `runtime/` and include every `REQUIRED_ARTIFACTS` entry
 in the signed input manifest. Image preparation and verification use the same
 file mapping and load the browser helper chain without executing policy writes.

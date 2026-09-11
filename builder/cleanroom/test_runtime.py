@@ -55,6 +55,24 @@ class RuntimeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "usr/bin/omarchy-provision-owner"):
             runtime.verify(self.inputs, self.target)
 
+    def test_stale_browser_setter_rejected(self):
+        runtime.install(self.inputs, self.target)
+        (self.target / "usr/bin/omarchy-theme-set-browser").write_text("old setter")
+        with self.assertRaisesRegex(ValueError, "usr/bin/omarchy-theme-set-browser"):
+            runtime.verify(self.inputs, self.target)
+
+    def test_missing_browser_sudo_rule_rejected(self):
+        runtime.install(self.inputs, self.target)
+        (self.target / "etc/sudoers.d/omarchy-theme-browser").unlink()
+        with self.assertRaisesRegex(ValueError, "sudoers.d/omarchy-theme-browser"):
+            runtime.verify(self.inputs, self.target)
+
+    def test_writable_sudo_rule_rejected(self):
+        runtime.install(self.inputs, self.target)
+        (self.target / "etc/sudoers.d/omarchy-theme-browser").chmod(0o666)
+        with self.assertRaisesRegex(ValueError, "permissions changed"):
+            runtime.verify(self.inputs, self.target)
+
     def test_packaged_absolute_symlink_replaced_without_touching_referent(self):
         outside = self.root / "outside-command"
         outside.write_text("untouched")
