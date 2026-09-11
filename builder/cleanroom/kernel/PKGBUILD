@@ -1,6 +1,6 @@
 pkgname=linux-omarchy-mac
 pkgver=7.1.9.mac
-pkgrel=1
+pkgrel=2
 pkgdesc='Omarchy M4 and Neo cleanroom kernel and matched modules'
 arch=('aarch64')
 url='https://github.com/erykwieliczko/omarchy-mx-mac'
@@ -15,7 +15,7 @@ package() {
   local input=${OMARCHY_CLEANROOM_KERNEL_SOURCE:?kernel input directory is required}
   local release
   release=$(cat "$input/kernel.release")
-  [[ $release == "7.1.9-omarchy-mac.1" ]]
+  [[ $release == "7.1.9-omarchy-mac.2" ]]
   [[ -f $input/Image && -d $input/lib/modules/$release ]]
   [[ ! -e $input/lib/modules/$release/build && ! -L $input/lib/modules/$release/build ]]
   install -d "$pkgdir/usr/lib/modules"

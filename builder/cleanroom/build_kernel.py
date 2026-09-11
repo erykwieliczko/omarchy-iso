@@ -74,6 +74,8 @@ def build(workspace, rust_toolchain):
         if release != lock["kernel_release"]:
             raise ValueError("unexpected resolved kernel release: " + release)
         run(make + ["Image", "dtbs", "modules"])
+        if (output / "include/config/kernel.release").read_text().strip() != release:
+            raise ValueError("compiled kernel release changed after configuration")
         verify_config(output / ".config")
         destination.mkdir(parents=True, exist_ok=False)
         run(make + ["modules_install", f"INSTALL_MOD_PATH={destination}", "DEPMOD=true"])

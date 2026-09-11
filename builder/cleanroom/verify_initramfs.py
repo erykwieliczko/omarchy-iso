@@ -70,6 +70,21 @@ def verify(image, thermal):
         if not stat.S_ISDIR(mode) and name.startswith(('vendorfw/', 'usr/lib/firmware/', 'lib/firmware/')) and name not in allowed:
             raise ValueError('distributed initramfs contains vendor firmware: ' + name)
     release = thermal.parents[3].name
+    tree = thermal.parents[3]
+    for path, (mode, digest) in records.items():
+        if path.startswith(('usr/lib/modules/', 'lib/modules/')):
+            relative = path.split('lib/modules/', 1)[1]
+            if relative.split('/')[0] != release:
+                raise ValueError('initramfs contains a different kernel release: ' + path)
+            if path.endswith(('.ko.zst', '.ko.xz', '.ko.gz')):
+                raise ValueError('unexpected compressed initramfs module: ' + path)
+            if path.endswith('.ko'):
+                module = tree.parent / relative
+                if not module.is_file() or hashlib.sha256(module.read_bytes()).hexdigest() != digest:
+                    raise ValueError('initramfs module differs from kernel build: ' + path)
+        if any(marker in path for marker in
+               ('neo_poll_tty', 'neo-installer-debug', 'neo-wifi-debug', 'Image.wifi-debug', 'Image.beacon')):
+            raise ValueError('diagnostic initramfs member: ' + path)
     name = 'usr/lib/modules/' + release + '/kernel/drivers/thermal/apple-pmp-thermal.ko'
     if records.get(name, (None, None))[1] != hashlib.sha256(thermal.read_bytes()).hexdigest():
         raise ValueError('initramfs thermal module mismatch')

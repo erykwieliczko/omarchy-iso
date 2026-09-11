@@ -35,6 +35,24 @@ class FirmwareFreeInitramfsTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'contains vendor firmware'):
                     verify(image, Path(directory) / 'not-needed')
 
+    def test_every_initramfs_module_must_match_the_compiled_release_and_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            thermal = root / 'lib/modules/test-release/kernel/drivers/thermal/apple-pmp-thermal.ko'
+            thermal.parent.mkdir(parents=True)
+            thermal.write_bytes(b'thermal')
+            image = root / 'initramfs'
+            base = cpio('init') + cpio('usr/lib/systemd/systemd') + cpio('usr/lib/firmware/regulatory.db')
+            base += cpio('usr/lib/modules/test-release/kernel/drivers/thermal/apple-pmp-thermal.ko', b'thermal')
+            for member in ('usr/lib/modules/test-release+/extra.ko',
+                           'usr/lib/modules/test-release/extra.ko',
+                           'usr/lib/modules/test-release/extra.ko.zst', 'neo-wifi-debug.cpio.gz'):
+                image.write_bytes(base + cpio(member))
+                with self.subTest(member=member), self.assertRaises(ValueError):
+                    verify(image, thermal)
+            image.write_bytes(base)
+            verify(image, thermal)
+
     def test_normalized_duplicates_and_malformed_trailing_data_are_rejected(self):
         for data in (cpio('./same') + cpio('same'), cpio('../escape'), cpio('valid') + b'unknown', cpio('cut')[:-5]):
             with self.subTest(data=data[-20:]), self.assertRaises(ValueError):

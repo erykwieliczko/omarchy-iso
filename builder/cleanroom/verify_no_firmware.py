@@ -25,6 +25,10 @@ def verify(top, boot):
             if p.is_symlink() or not p.is_file():
                 continue
             name = p.name.lower()
+            if (name in ('image.wifi-debug', 'image.beacon', 'neo-wifi-debug.cpio.gz')
+                    or any(part.startswith(('neo-installer-debug', 'neo_poll_tty', 'neo-wifi-world-trial'))
+                           for part in p.parts)):
+                raise ValueError('diagnostic artifact remains: ' + str(p))
             if (name.endswith(('.im4p', '.ipsw', '.dmg.aea', '.trx', '.clmb', '.txcb'))
                     or name in ('apple-restore.zip', 'firmware.tar', 'firmware.cpio', 'tpmtfw-j713.bin', 'tpmtfw-j700.bin', 'wcal.bin', 'oca2.bin', 'config-original.bin')
                     or name.startswith(('brcmfmac4388', 'izuba_')) or '.pkg.tar.' in name):

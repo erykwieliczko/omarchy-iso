@@ -105,11 +105,14 @@ in the signed input manifest. Image preparation and verification use the same
 file mapping and load the browser helper chain without executing policy writes.
 An image missing either helper is rejected before installation.
 Image preparation replaces both provisioner copies and orders setup
-after vendor firmware extraction. On Neo, first-run setup asks for the actual
-country before network selection, merges iwd's General/Country setting, and
-persists the matching wireless regulatory hint. Country policy application
-still needs a normal-reboot hardware check; a configuration file alone is not
-proof. Missing country firmware permits explicit Ethernet/offline setup.
+after vendor firmware extraction. World-domain discovery uses the published
+MT7932 passive-scan implementation and the original-derived `world-XZ.bin`.
+First-run setup does not require or invent a country. Intentional country
+settings are preserved, and missing explicit policies never fall back to XZ.
+Kernel requirements include IPv4/IPv6 policy routing, TUN and connection marks
+for Tailscale. Builds pass `LOCALVERSION=` explicitly; Image, all installed
+modules and every initramfs module must match the selected release and bytes.
+
 
 The image removes the debug `earlycon`/`loglevel=7` arguments while
 retaining kernel diagnostics in dmesg and the journal. The standard provisioning service hands off to SDDM and the Omarchy uwsm

@@ -29,6 +29,16 @@ class KernelRequirementsTest(unittest.TestCase):
         self.check_fragment("CONFIG_PKCS8_PRIVATE_KEY_PARSER=m",
                             "# CONFIG_PKCS8_PRIVATE_KEY_PARSER is not set", "CONFIG_PKCS8_PRIVATE_KEY_PARSER")
 
+    def test_tailscale_requires_policy_routing_and_connection_marks(self):
+        for option, value in (
+            ("IP_ADVANCED_ROUTER", "y"), ("IP_MULTIPLE_TABLES", "y"),
+            ("IPV6_MULTIPLE_TABLES", "y"), ("NF_CONNTRACK_MARK", "y"),
+            ("NETFILTER_XT_CONNMARK", "m"), ("TUN", "y"),
+        ):
+            with self.subTest(option=option):
+                self.check_fragment(f"CONFIG_{option}={value}",
+                                    f"# CONFIG_{option} is not set", f"CONFIG_{option}")
+
     def test_speaker_driver_cannot_be_enabled_by_base_config(self):
         self.check_fragment("# CONFIG_SND_SOC_APPLE_MACAUDIO is not set",
                             "CONFIG_SND_SOC_APPLE_MACAUDIO=m", "CONFIG_SND_SOC_APPLE_MACAUDIO")
@@ -73,7 +83,7 @@ class KernelRequirementsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             payload = root / "payload"
-            tree = payload / "lib/modules/7.1.9-omarchy-j713.3"
+            tree = payload / "lib/modules/7.1.9-omarchy-mac.2"
             tree.mkdir(parents=True)
             tree.chmod(0o750)
             module = tree / "test.ko"

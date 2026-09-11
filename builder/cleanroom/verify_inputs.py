@@ -19,7 +19,7 @@ def verify(directory):
         raise ValueError("unsupported cleanroom payload input")
     required = {"j700.dtb", "kernel/Image", "kernel/config", "kernel/t8132-j713.dtb", "m1n1-stage2.bin", "u-boot.bin",
                 "kernel/kernel.release", "kernel/build-receipt.json", "u-boot.config", "u-boot-receipt.json",
-                "linux-omarchy-mac-7.1.9.mac-1-aarch64.pkg.tar.zst",
+                "linux-omarchy-mac-7.1.9.mac-2-aarch64.pkg.tar.zst",
                 "aquamarine-0.14.0-3-aarch64.pkg.tar.zst"} | REQUIRED_ARTIFACTS
     if not required.issubset(manifest["artifacts"]):
         raise ValueError("incomplete cleanroom artifact set")

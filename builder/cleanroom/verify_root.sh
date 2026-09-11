@@ -41,6 +41,11 @@ python3 "${BASH_SOURCE[0]%/*}/runtime.py" verify "$input" "$top/@factory"
 cmp "${BASH_SOURCE[0]%/*}/config/provision-firmware.conf" \
   "$target/etc/systemd/system/omarchy-provision-owner.service.d/firmware.conf"
 [[ -f $target/usr/share/zoneinfo/iso3166.tab && -x $target/usr/bin/iw ]]
+# Fresh media has no laboratory regulatory override. Existing installed-user
+# choices are handled separately by the optional country-setting helper.
+for config in "$target/etc/iwd/main.conf" "$target/etc/conf.d/wireless-regdom"; do
+  [[ ! -f $config ]] || ! grep -Eq '^[[:space:]]*(Country|WIRELESS_REGDOM)[[:space:]]*=' "$config"
+done
 [[ ! -e $target/neo-installer-debug ]]
 [[ -z $(find "$target/usr/lib/modules" -name 'neo_poll_tty*' -print -quit) ]]
 python3 - "$target" <<'PYDIAG'
@@ -72,7 +77,9 @@ while IFS= read -r -d '' file; do
   cmp "$file" "$target/usr/lib/modules/$relative"
 done < <(find "$input/kernel/lib/modules" -type f -name '*.ko' -print0)
 cmp "$input/kernel/build-receipt.json" "$target/usr/share/omarchy/kernel/build-receipt.json"
-modprobe -d "$target" -S "$release" --show-depends nf_tables > "$output/nftables-modules.txt"
+for module in nf_tables nft_ct xt_connmark ipt_CONNMARK ip6t_CONNMARK; do
+  modprobe -d "$target" -S "$release" --show-depends "$module" > "$output/$module-modules.txt"
+done
 cmp "$input/kernel/Image" "$target/usr/lib/modules/$release/vmlinuz"
 cmp "$input/kernel/config" "$target/usr/lib/modules/$release/config"
 modinfo "$target/usr/lib/modules/$release/kernel/drivers/thermal/apple-pmp-thermal.ko" > "$output/thermal-module.txt"
@@ -87,7 +94,7 @@ python3 - "$images/installed-packages.txt" <<'PY'
 import sys
 from pathlib import Path
 packages=dict(line.split(' ',1) for line in Path(sys.argv[1]).read_text().splitlines())
-assert packages['linux-omarchy-mac']=='7.1.9.mac-1'
+assert packages['linux-omarchy-mac']=='7.1.9.mac-2'
 assert packages['aquamarine']=='0.14.0-3'
 assert {'omarchy-dev','omarchy-settings-dev','mkinitcpio','systemd','networkmanager'} <= packages.keys()
 assert not {'asahi-fwextract','asahi-scripts','linux-asahi','linux-asahi-headers','m1n1','uboot-asahi','grub'} & packages.keys()

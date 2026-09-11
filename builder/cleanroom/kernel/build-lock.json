@@ -1,7 +1,7 @@
 {
-  "source_revision": "d31ff64b6332333f770d8d15642198ed20489403",
+  "source_revision": "6ba27a80f991f1627f41fa71aa241d600246e948",
   "base_config_sha256": "5bc11846be26431658d93bd86584c83c9cd3ea23c8ac6121d6f38da46f5f80a4",
-  "kernel_release": "7.1.9-omarchy-mac.1",
+  "kernel_release": "7.1.9-omarchy-mac.2",
   "clang_version": "22.1.8",
   "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
   "bindgen_version": "bindgen 0.72.1",

@@ -59,7 +59,10 @@ def verify_artifacts(directory, check_receipt=True):
     lock = json.loads((RECIPE / "build-lock.json").read_text())
     if release != lock["kernel_release"]:
         raise ValueError("unexpected kernel release")
-    tree = directory / "lib/modules" / release
+    module_root = directory / "lib/modules"
+    if {path.name for path in module_root.iterdir()} != {release}:
+        raise ValueError("kernel payload contains a different module release")
+    tree = module_root / release
     for path in [directory, *directory.rglob("*")]:
         if path.is_symlink():
             raise ValueError("kernel payload contains a symlink: " + str(path))
@@ -78,6 +81,8 @@ def verify_artifacts(directory, check_receipt=True):
         if len(versions) != len(batch) or any(v.split()[0] != release for v in versions):
             raise ValueError("module version does not match Image")
     image = (directory / "Image").read_bytes()
+    if b"Linux version " + release.encode() + b" " not in image:
+        raise ValueError("Image release differs from kernel.release")
     if image[56:60] != b"ARM\x64":
         raise ValueError("Image is not an ARM64 kernel")
     if (directory / "t8132-j713.dtb").read_bytes()[:4] != b"\xd0\x0d\xfe\xed":

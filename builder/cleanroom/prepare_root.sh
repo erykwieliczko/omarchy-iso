@@ -7,7 +7,7 @@ base=${2:?verified base image directory}
 output=${3:?new output directory}
 release=$(cat "$input/kernel/kernel.release")
 root_uuid=4f4d5801-524f-4f54-8713-000000000001
-kernel_package=linux-omarchy-mac-7.1.9.mac-1-aarch64.pkg.tar.zst
+kernel_package=linux-omarchy-mac-7.1.9.mac-2-aarch64.pkg.tar.zst
 graphics_package=aquamarine-0.14.0-3-aarch64.pkg.tar.zst
 
 fail() { echo "cleanroom-root: $*" >&2; exit 1; }
