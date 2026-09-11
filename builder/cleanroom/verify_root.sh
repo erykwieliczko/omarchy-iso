@@ -36,10 +36,8 @@ python3 "${BASH_SOURCE[0]%/*}/verify_initramfs.py" "$images/initramfs.img" "$inp
 [[ ! -s $target/etc/machine-id ]]
 [[ ! -e $target/usr/bin/update-m1n1 ]]
 [[ -f $target/var/lib/omarchy/provisioning/pending ]]
-cmp "$input/runtime/bin/omarchy-provision-owner" "$target/usr/bin/omarchy-provision-owner"
-cmp "$input/runtime/bin/omarchy-provision-owner" "$target/usr/share/omarchy/bin/omarchy-provision-owner"
-cmp "$input/runtime/install/provisioning/wifi-country.sh" \
-  "$target/usr/share/omarchy/install/provisioning/wifi-country.sh"
+python3 "${BASH_SOURCE[0]%/*}/runtime.py" verify "$input" "$target"
+python3 "${BASH_SOURCE[0]%/*}/runtime.py" verify "$input" "$top/@factory"
 cmp "${BASH_SOURCE[0]%/*}/config/provision-firmware.conf" \
   "$target/etc/systemd/system/omarchy-provision-owner.service.d/firmware.conf"
 [[ -f $target/usr/share/zoneinfo/iso3166.tab && -x $target/usr/bin/iw ]]

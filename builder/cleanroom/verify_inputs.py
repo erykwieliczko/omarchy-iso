@@ -6,6 +6,7 @@ import sys
 
 from verify_kernel import verify_artifacts
 from build_u_boot import BOOTCOMMAND
+from runtime import REQUIRED_ARTIFACTS
 
 
 def verify(directory):
@@ -19,8 +20,7 @@ def verify(directory):
     required = {"j700.dtb", "kernel/Image", "kernel/config", "kernel/t8132-j713.dtb", "m1n1-stage2.bin", "u-boot.bin",
                 "kernel/kernel.release", "kernel/build-receipt.json", "u-boot.config", "u-boot-receipt.json",
                 "linux-omarchy-mac-7.1.9.mac-1-aarch64.pkg.tar.zst",
-                "aquamarine-0.14.0-3-aarch64.pkg.tar.zst",
-                "runtime/bin/omarchy-provision-owner", "runtime/install/provisioning/wifi-country.sh"}
+                "aquamarine-0.14.0-3-aarch64.pkg.tar.zst"} | REQUIRED_ARTIFACTS
     if not required.issubset(manifest["artifacts"]):
         raise ValueError("incomplete cleanroom artifact set")
     if any(name == 'apple-restore.zip' or name.startswith('firmware/')

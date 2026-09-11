@@ -96,10 +96,7 @@ sed -i "s/4f4d5801-524f-4f54-8000-000000000001/$root_uuid/g" "$target/etc/fstab"
 
 # Admit the first-run changes alongside the kernel; the base image contains an
 # older runtime package, including a standalone /usr/bin provisioner copy.
-install -Dm0755 "$input/runtime/bin/omarchy-provision-owner" "$target/usr/bin/omarchy-provision-owner"
-install -Dm0755 "$input/runtime/bin/omarchy-provision-owner" "$target/usr/share/omarchy/bin/omarchy-provision-owner"
-install -Dm0644 "$input/runtime/install/provisioning/wifi-country.sh" \
-  "$target/usr/share/omarchy/install/provisioning/wifi-country.sh"
+python3 "${BASH_SOURCE[0]%/*}/runtime.py" install "$input" "$target"
 install -Dm0644 "${BASH_SOURCE[0]%/*}/config/provision-firmware.conf" \
   "$target/etc/systemd/system/omarchy-provision-owner.service.d/firmware.conf"
 

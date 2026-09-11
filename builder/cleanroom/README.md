@@ -96,9 +96,14 @@ build a fresh artifact set. The final initramfs and embedded EFI/boot.bin must
 also be rebuilt: updating a root filesystem's kernel package alone does not
 replace the kernel embedded in this boot chain.
 
-The input manifest also admits `runtime/bin/omarchy-provision-owner` and
-`runtime/install/provisioning/wifi-country.sh` from the selected Omarchy runtime
-revision. Image preparation replaces both provisioner copies and orders setup
+The input manifest admits the full first-run overlay listed in `runtime.py`:
+the provisioner, setup form, Wi-Fi country helper, browser-policy helper and
+its as-root dependency, all from the selected Omarchy runtime revision. Stage
+each listed path below `runtime/` and include every `REQUIRED_ARTIFACTS` entry
+in the signed input manifest. Image preparation and verification use the same
+file mapping and load the browser helper chain without executing policy writes.
+An image missing either helper is rejected before installation.
+Image preparation replaces both provisioner copies and orders setup
 after vendor firmware extraction. On Neo, first-run setup asks for the actual
 country before network selection, merges iwd's General/Country setting, and
 persists the matching wireless regulatory hint. Country policy application
